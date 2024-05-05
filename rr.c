@@ -21,6 +21,9 @@ struct process
   TAILQ_ENTRY(process) pointers;
 
   /* Additional fields here */
+  u32 scheduled_time;
+  u32 completion_time;
+  u32 execution_time;
   /* End of "Additional fields here" */
 };
 
@@ -160,7 +163,6 @@ int main(int argc, char *argv[])
   u32 total_response_time = 0;
 
   /* Your code here */
-  
   /* End of "Your code here" */
 
   printf("Average waiting time: %.2f\n", (float)total_waiting_time / (float)size);
