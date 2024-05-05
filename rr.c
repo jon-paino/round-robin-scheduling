@@ -144,6 +144,27 @@ void init_processes(const char *path,
   close(fd);
 }
 
+bool timeLeft(struct process **data, u32 size){
+  int time_left;
+  for (int i = 0; i < size; i++){
+    time_left += (*data)[i].burst_time;
+  } 
+  if (time_left > 0) return true;
+  else return false;
+}
+
+/* While performing a time slice for a given process, determine if any others arrive in the time being and add them to the queue */
+void scheduleArrival(struct process **data, struct process *current_process, struct process_list list, u32 current_time, u32 size){
+      for(int i = 0; i < size; i++){
+        if (data[i] == current_process){ 
+          i++;
+        }
+        if((*data)[i].arrival_time == current_time){
+          TAILQ_INSERT_TAIL(&list, data[i], pointers);
+        }
+      }
+}
+
 int main(int argc, char *argv[])
 {
   if (argc != 3)
@@ -163,6 +184,45 @@ int main(int argc, char *argv[])
   u32 total_response_time = 0;
 
   /* Your code here */
+
+  /* Find the first process to be scheduled (quickest arrival time) */
+  u32 firstArrival = data[0].arrival_time; 
+  u32 firstProcess = 0;
+  for (int i = 1; i < size; i++){
+    if (data[i].arrival_time < firstArrival){
+      firstArrival = data[i].arrival_time;
+      firstProcess = i;
+    }
+  }
+  /* Insert the first arriving process onto the queue */
+  TAILQ_INSERT_TAIL(&list, &data[firstProcess], pointers);
+
+  /* Round-robin implementation */
+  int current_time = 0;
+   /* Increment time until the firsst process arrives */
+  while(current_time < firstArrival) current_time++;
+  bool time_remaining = timeLeft(&data, size);
+  /* While there are still processes to be run */
+  while(time_remaining){ 
+    struct process *current_process = TAILQ_FIRST(&list);
+    TAILQ_REMOVE(&list, current_process, pointers);
+    current_process->scheduled_time = current_time; 
+    /* If any other processes have the same arrival time as the first one place them on the queue */
+    scheduleArrival(data, current_process, list, current_time, size);
+    u32 proc_time_left = current_process->burst_time;
+    u32 i;
+    for(i = 0; (i < quantum_length || i < proc_time_left); i++){
+        current_time++;
+        /* If any others arrive in the time being and add them to the queue */
+        scheduleArrival(data, current_process, list, current_time, size);
+    }
+    /* Add to the execution time, adjust the burst time, and if it finished adjust completion time */
+    current_process->execution_time += (i + 1);
+    current_process->burst_time -= (i + 1);
+    if (current_process->burst_time == 0) { 
+      current_process->completion_time == current_time;
+    }
+  }
   /* End of "Your code here" */
 
   printf("Average waiting time: %.2f\n", (float)total_waiting_time / (float)size);
