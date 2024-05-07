@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
       current_process->been_scheduled = true;
     }
     /* If any other processes have the same arrival time as the first one place them on the queue */
-    scheduleArrival(data, current_process, &list, current_time, size);
+    scheduleArrival(&data, current_process, &list, current_time, size);
 
     u32 time_slice = quantum_length < current_process->burst_time ? quantum_length : current_process->burst_time;
     for(u32 i = 0; i < time_slice; i++){
@@ -226,11 +226,11 @@ int main(int argc, char *argv[])
         current_process->execution_time++;
         current_process->burst_time--;
         /* If any others arrive in the time being, add them to the queue */
-        scheduleArrival(data, current_process, &list, current_time, size);
+        scheduleArrival(&data, current_process, &list, current_time, size);
     }
      /* If process finishes, record completion time */
     if (current_process->burst_time == 0) { 
-      current_process->completion_time == current_time + 1;
+      current_process->completion_time = current_time + 1;
     }else{
       /* Requeue if the process is not completed */
       TAILQ_INSERT_TAIL(&list, current_process, pointers);
