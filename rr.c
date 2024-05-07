@@ -215,6 +215,7 @@ int main(int argc, char *argv[])
     TAILQ_REMOVE(&list, current_process, pointers);
     if (!current_process->been_scheduled) {
       current_process->scheduled_time = current_time;
+      current_process->execution_time = current_process->burst_time; // The total execution time is the initial burst time
       current_process->been_scheduled = true;
     }
     /* If any other processes have the same arrival time as the first one place them on the queue */
@@ -223,14 +224,13 @@ int main(int argc, char *argv[])
     u32 time_slice = quantum_length < current_process->burst_time ? quantum_length : current_process->burst_time;
     for(u32 i = 0; i < time_slice; i++){
         current_time++;
-        current_process->execution_time++;
         current_process->burst_time--;
         /* If any others arrive in the time being, add them to the queue */
         scheduleArrival(&data, current_process, &list, current_time, size);
     }
      /* If process finishes, record completion time */
     if (current_process->burst_time == 0) { 
-      current_process->completion_time = current_time + 1;
+      current_process->completion_time = current_time;
     }else{
       /* Requeue if the process is not completed */
       TAILQ_INSERT_TAIL(&list, current_process, pointers);
@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
   }
   /* Adjust total waiting and response time */
   for (int i = 0; i < size; i++){
-    total_waiting_time += (data[i].completion_time - data[i].scheduled_time) - data[i].execution_time;
+    total_waiting_time += (data[i].completion_time - data[i].arrival_time) - data[i].execution_time;
     total_response_time += (data[i].scheduled_time - data[i].arrival_time);
   }
   /* End of "Your code here" */
