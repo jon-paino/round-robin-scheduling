@@ -24,6 +24,7 @@ struct process
   u32 scheduled_time;
   u32 completion_time;
   u32 execution_time;
+  bool been_scheduled;
   /* End of "Additional fields here" */
 };
 
@@ -144,23 +145,24 @@ void init_processes(const char *path,
   close(fd);
 }
 
-bool timeLeft(struct process **data, u32 size){
-  int time_left;
-  for (int i = 0; i < size; i++){
-    time_left += (*data)[i].burst_time;
-  } 
-  if (time_left > 0) return true;
-  else return false;
+bool timeLeft(struct process **data, u32 size) {
+  for (int i = 0; i < size; i++) {
+    /* If any process still needs time */
+    if ((*data)[i].burst_time > 0) {  
+      return true;
+    }
+  }
+  return false; 
 }
 
-/* While performing a time slice for a given process, determine if any others arrive in the time being and add them to the queue */
-void scheduleArrival(struct process **data, struct process *current_process, struct process_list list, u32 current_time, u32 size){
+/* While performing a time slice for a given process, determine if any others arrive at the current time and add them to the queue */
+void scheduleArrival(struct process **data, struct process *current_process, struct process_list *list, u32 current_time, u32 size){
       for(int i = 0; i < size; i++){
-        if (data[i] == current_process){ 
-          i++;
+        if (&(*data)[i] == current_process){ 
+          continue;
         }
-        if((*data)[i].arrival_time == current_time){
-          TAILQ_INSERT_TAIL(&list, data[i], pointers);
+        if((*data)[i].arrival_time == current_time && (*data)[i].burst_time > 0){
+          TAILQ_INSERT_TAIL(list, &(*data)[i], pointers);
         }
       }
 }
@@ -198,30 +200,46 @@ int main(int argc, char *argv[])
   TAILQ_INSERT_TAIL(&list, &data[firstProcess], pointers);
 
   /* Round-robin implementation */
-  int current_time = 0;
-   /* Increment time until the firsst process arrives */
-  while(current_time < firstArrival) current_time++;
-  bool time_remaining = timeLeft(&data, size);
+  u32 current_time = firstArrival;
   /* While there are still processes to be run */
-  while(time_remaining){ 
+  while(timeLeft(&data, size)){ 
     struct process *current_process = TAILQ_FIRST(&list);
+    if (current_process == NULL) {
+      do {
+        current_time++;  // Advance time if no process is in the queue
+        scheduleArrival(&data, NULL, &list, current_time, size);  // Check for new arrivals
+      } while (TAILQ_EMPTY(&list) && timeLeft(&data, size));  // Continue if the list is still empty and there are unfinished processes
+      continue;
+    }
+    /* Start running the process at the front of the queue*/
     TAILQ_REMOVE(&list, current_process, pointers);
-    current_process->scheduled_time = current_time; 
+    if (!current_process->been_scheduled) {
+      current_process->scheduled_time = current_time;
+      current_process->been_scheduled = true;
+    }
     /* If any other processes have the same arrival time as the first one place them on the queue */
-    scheduleArrival(data, current_process, list, current_time, size);
-    u32 proc_time_left = current_process->burst_time;
-    u32 i;
-    for(i = 0; (i < quantum_length || i < proc_time_left); i++){
+    scheduleArrival(data, current_process, &list, current_time, size);
+
+    u32 time_slice = quantum_length < current_process->burst_time ? quantum_length : current_process->burst_time;
+    for(u32 i = 0; i < time_slice; i++){
         current_time++;
-        /* If any others arrive in the time being and add them to the queue */
-        scheduleArrival(data, current_process, list, current_time, size);
+        current_process->execution_time++;
+        current_process->burst_time--;
+        /* If any others arrive in the time being, add them to the queue */
+        scheduleArrival(data, current_process, &list, current_time, size);
     }
-    /* Add to the execution time, adjust the burst time, and if it finished adjust completion time */
-    current_process->execution_time += (i + 1);
-    current_process->burst_time -= (i + 1);
+     /* If process finishes, record completion time */
     if (current_process->burst_time == 0) { 
-      current_process->completion_time == current_time;
+      current_process->completion_time == current_time + 1;
+    }else{
+      /* Requeue if the process is not completed */
+      TAILQ_INSERT_TAIL(&list, current_process, pointers);
     }
+  }
+  /* Adjust total waiting and response time */
+  for (int i = 0; i < size; i++){
+    total_waiting_time += (data[i].completion_time - data[i].scheduled_time) - data[i].execution_time;
+    total_response_time += (data[i].scheduled_time - data[i].arrival_time);
   }
   /* End of "Your code here" */
 
