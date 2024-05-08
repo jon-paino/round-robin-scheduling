@@ -25,9 +25,8 @@ cmd for running processes.txt with a time-slice of 3
 ```shell
 ./rr processes.txt 3
 ```
-cmd for running processes.txt with a time-slice of 3
 
-results TODO
+results 
 ```shell
 Average waiting time: 7.00
 Average response time: 2.75
