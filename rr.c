@@ -167,6 +167,15 @@ void scheduleArrival(struct process **data, struct process *current_process, str
       }
 }
 
+/* For debugging purposes */
+void print_list(struct process_list *list) {
+    struct process *item;
+    TAILQ_FOREACH(item, list, pointers) {
+        printf("%u -> ", item->pid);
+    }
+    printf("NULL\n");
+}
+
 int main(int argc, char *argv[])
 {
   if (argc != 3)
@@ -198,11 +207,11 @@ int main(int argc, char *argv[])
   }
   /* Insert the first arriving process onto the queue */
   TAILQ_INSERT_TAIL(&list, &data[firstProcess], pointers);
-
   /* Round-robin implementation */
   u32 current_time = firstArrival;
   /* While there are still processes to be run */
   while(timeLeft(&data, size)){ 
+
     struct process *current_process = TAILQ_FIRST(&list);
     if (current_process == NULL) {
       do {
@@ -213,13 +222,14 @@ int main(int argc, char *argv[])
     }
     /* Start running the process at the front of the queue*/
     TAILQ_REMOVE(&list, current_process, pointers);
+
     if (!current_process->been_scheduled) {
       current_process->scheduled_time = current_time;
       current_process->execution_time = current_process->burst_time; // The total execution time is the initial burst time
       current_process->been_scheduled = true;
     }
     /* If any other processes have the same arrival time as the first one place them on the queue */
-    scheduleArrival(&data, current_process, &list, current_time, size);
+    if (current_time == firstArrival) { scheduleArrival(&data, current_process, &list, current_time, size); }
 
     u32 time_slice = quantum_length < current_process->burst_time ? quantum_length : current_process->burst_time;
     for(u32 i = 0; i < time_slice; i++){
